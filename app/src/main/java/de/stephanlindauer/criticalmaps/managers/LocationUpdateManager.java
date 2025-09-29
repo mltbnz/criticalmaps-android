@@ -3,10 +3,13 @@ package de.stephanlindauer.criticalmaps.managers;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+
+import androidx.core.content.ContextCompat;
 
 import com.squareup.otto.Produce;
 
@@ -29,22 +32,26 @@ import de.stephanlindauer.criticalmaps.provider.EventBus;
 
 @Singleton
 public class LocationUpdateManager {
-
     private final OwnLocationModel ownLocationModel;
     private final EventBus eventBus;
     private final PermissionCheckHandler permissionCheckHandler;
     private final App app;
     private boolean isUpdating = false;
+    private boolean isEventBusRegistered = false;
 
-    //const
     private static final float LOCATION_REFRESH_DISTANCE = 20; //20 meters
     private static final long LOCATION_REFRESH_TIME = 12 * 1000; //12 seconds
     private static final int LOCATION_NEW_THRESHOLD = 30 * 1000; //30 seconds
-    private static final String[] USED_PROVIDERS = new String[]{
+
+    private final String[] USED_PROVIDERS = new String[]{
             LocationManager.GPS_PROVIDER,
             LocationManager.NETWORK_PROVIDER};
 
-    //misc
+    @SuppressLint("InlinedApi")
+    private final String[] PERMISSIONS = {
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.POST_NOTIFICATIONS};
     private final LocationManager locationManager;
     private Location lastPublishedLocation;
 
@@ -130,6 +137,7 @@ public class LocationUpdateManager {
         for (String provider : USED_PROVIDERS) {
             if (allProviders.contains(provider)) {
                 atLeastOneProviderExists = true;
+                break;
             }
         }
         return atLeastOneProviderExists;
@@ -142,7 +150,7 @@ public class LocationUpdateManager {
         return isUpdating;
     }
 
-    public void initializeAndStartListening() {
+    public void initialize() {
         boolean noProviderExists = !checkIfAtLeastOneProviderExits();
         boolean noPermission = !checkPermission();
 
@@ -153,23 +161,24 @@ public class LocationUpdateManager {
         } else {
             setStatusEvent();
         }
-        eventBus.register(this);
+
+        if(!isEventBusRegistered) {
+            eventBus.register(this);
+            isEventBusRegistered = true;
+        }
 
         // Short-circuit here: if no provider exists don't start listening
         if (noProviderExists) {
             return;
         }
 
-        // If permissions are not granted, request them and only start listening on success
+        // If permissions are not granted, don't start listening
         if (noPermission) {
-            requestPermission();
             return;
         }
-
-        startListening();
     }
 
-    private void startListening() {
+    public void startListening() {
         // Set GPS status in case we're coming back after permission request
         postStatusEvent();
 
@@ -203,19 +212,22 @@ public class LocationUpdateManager {
         }
     }
 
-    public boolean checkPermission() {
-        return PermissionCheckHandler.checkPermissionGranted(
-                Manifest.permission.ACCESS_FINE_LOCATION); //TODO does this exist on devices with only network location?
+    @SuppressLint("InlinedApi")
+    public static boolean checkPermission() {
+        App app = App.components().app();
+        return (ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                && ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
     }
 
     public void requestPermission() {
         PermissionRequest permissionRequest = new PermissionRequest(
-                Manifest.permission.ACCESS_FINE_LOCATION,
+                PERMISSIONS,
                 app.getString(R.string.map_location_permissions_rationale_text),
                 this::startListening,
                 null,
                 this::setAndPostPermissionPermanentlyDeniedEvent);
-        permissionCheckHandler.requestPermissionWithRationaleIfNeeded(permissionRequest);
+        permissionCheckHandler.requestPermissionsWithRationaleIfNeeded(permissionRequest);
     }
 
     public void handleShutdown() {
@@ -223,7 +235,9 @@ public class LocationUpdateManager {
         try {
             eventBus.unregister(this);
         } catch (IllegalArgumentException ignored) {
+            // nothing we can do
         }
+        isEventBusRegistered = false;
     }
 
     private void publishNewLocation(Location location) {
@@ -262,10 +276,6 @@ public class LocationUpdateManager {
             return true;
         } else if (isNewer && !isLessAccurate) {
             return true;
-        } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
-            return true;
-        }
-
-        return false;
+        } else return isNewer && !isSignificantlyLessAccurate && isFromSameProvider;
     }
 }

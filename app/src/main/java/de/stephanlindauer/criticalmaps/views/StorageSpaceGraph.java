@@ -6,10 +6,11 @@ import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import androidx.annotation.Nullable;
-import androidx.interpolator.view.animation.LinearOutSlowInInterpolator;
 import android.util.AttributeSet;
 import android.view.View;
+
+import androidx.annotation.Nullable;
+import androidx.interpolator.view.animation.LinearOutSlowInInterpolator;
 
 import de.stephanlindauer.criticalmaps.R;
 
@@ -18,15 +19,15 @@ public class StorageSpaceGraph extends View {
     private float usedSpacePercentage = 0.4f;
     private float tilecachePercentage = 0.1f;
 
-    private Paint usedSpacePaint;
-    private Paint tilecachePaint;
-    private Paint freeSpacePaint;
+    private final Paint usedSpacePaint;
+    private final Paint tilecachePaint;
+    private final Paint freeSpacePaint;
 
-    private Rect usedSpaceArea;
-    private Rect tilecacheBarArea;
-    private Rect freeSpaceArea;
+    private final Rect usedSpaceArea;
+    private final Rect tilecacheBarArea;
+    private final Rect freeSpaceArea;
 
-    private Rect drawableArea;
+    private final Rect drawableArea;
 
     public StorageSpaceGraph(Context context) {
         this(context, null);
@@ -78,7 +79,7 @@ public class StorageSpaceGraph extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         drawableArea.set(
-                getPaddingLeft(), getPaddingTop(),w - getPaddingRight(), h - getPaddingBottom());
+                getPaddingLeft(), getPaddingTop(), w - getPaddingRight(), h - getPaddingBottom());
         setBars();
     }
 

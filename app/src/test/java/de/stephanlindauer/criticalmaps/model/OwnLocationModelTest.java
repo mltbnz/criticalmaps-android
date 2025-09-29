@@ -1,14 +1,14 @@
 package de.stephanlindauer.criticalmaps.model;
 
-import org.json.JSONException;
 import org.junit.Test;
 import org.osmdroid.util.GeoPoint;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 public class OwnLocationModelTest {
     @Test
-    public void hasPreciseLocation_impreciseLocationIsReportedAsImprecise() throws Exception {
+    public void hasPreciseLocation_impreciseLocationIsReportedAsImprecise() {
         OwnLocationModel tested = new OwnLocationModel();
 
         tested.setLocation(new GeoPoint(0d, 0d), 50.0f);
@@ -25,15 +25,15 @@ public class OwnLocationModelTest {
         assertThat(tested.hasPreciseLocation()).isTrue();
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void getLocationJson_throwsWhenNoLocation() {
-        // TODO use JUnit's assertThrows() instead when 4.13 is out
         OwnLocationModel tested = new OwnLocationModel();
-        tested.getLocationJson();
+
+        assertThrows(NullPointerException.class, tested::getLocationJson);
     }
 
     @Test
-    public void getLocationJson_returnsCorrectJson() throws JSONException{
+    public void getLocationJson_returnsCorrectJson() {
         OwnLocationModel tested = new OwnLocationModel();
 
         String expected = "{\"latitude\":\"40741895\",\"longitude\":\"-73989308\"}";

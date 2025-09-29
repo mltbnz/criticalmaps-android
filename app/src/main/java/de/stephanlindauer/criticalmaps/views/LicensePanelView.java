@@ -1,11 +1,11 @@
 package de.stephanlindauer.criticalmaps.views;
 
 import android.animation.LayoutTransition;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.StringRes;
 import android.text.method.LinkMovementMethod;
 import android.util.AttributeSet;
 import android.util.SparseArray;
@@ -14,32 +14,15 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.OnClick;
-import butterknife.Unbinder;
-import de.stephanlindauer.criticalmaps.R;
-import de.stephanlindauer.criticalmaps.utils.IntentUtil;
+import androidx.annotation.StringRes;
 
+import de.stephanlindauer.criticalmaps.R;
+import de.stephanlindauer.criticalmaps.databinding.ViewLicensePanelBinding;
+import de.stephanlindauer.criticalmaps.utils.IntentUtil;
 
 public class LicensePanelView extends LinearLayout {
 
-    @BindView(R.id.about_license_name)
-    TextView nameView;
-
-    @BindView(R.id.about_license_link)
-    TextView linkView;
-
-    @BindView(R.id.about_license_copyright)
-    TextView copyrightView;
-
-    @BindView(R.id.about_license_notice)
-    TextView noticeView;
-
-    @BindView(R.id.about_license_expandcollapse)
-    TextView expandCollapseView;
-    private final Unbinder unbinder;
-
+    private ViewLicensePanelBinding binding;
 
     public LicensePanelView(Context context) {
         this(context, null);
@@ -53,8 +36,8 @@ public class LicensePanelView extends LinearLayout {
         super(context, attrs, defStyleAttr);
 
         setOrientation(VERTICAL);
-        LayoutInflater.from(context).inflate(R.layout.license_panel_view, this, true);
-        unbinder = ButterKnife.bind(this);
+
+        binding = ViewLicensePanelBinding.inflate(LayoutInflater.from(context), this);
 
         TypedArray a = context.obtainStyledAttributes(
                 attrs, R.styleable.LicensePanelView, defStyleAttr, 0);
@@ -64,17 +47,19 @@ public class LicensePanelView extends LinearLayout {
         int noticeRes = a.getResourceId(R.styleable.LicensePanelView_notice, 0);
         a.recycle();
 
-        setViewTextFromResId(nameView, nameRes);
-        setViewTextFromResId(copyrightView, copyrightRes);
-        setViewTextFromResId(noticeView, noticeRes);
+        setViewTextFromResId(binding.licensepanelNameText, nameRes);
+        setViewTextFromResId(binding.licensepanelCopyrightText, copyrightRes);
+        setViewTextFromResId(binding.licensepanelNoticeText, noticeRes);
 
         if (linkString != null) {
-            linkView.setOnClickListener(
+            binding.licensepanelLinkText.setOnClickListener(
                     new IntentUtil.URLOpenOnActivityOnClickListener(linkString));
         }
 
         // make html links in notice text clickable
-        noticeView.setMovementMethod(LinkMovementMethod.getInstance());
+        binding.licensepanelNoticeText.setMovementMethod(LinkMovementMethod.getInstance());
+
+        binding.licensepanelExpandcollapseText.setOnClickListener(v -> togglePanel());
     }
 
     private void setViewTextFromResId(TextView view, @StringRes int res) {
@@ -83,30 +68,30 @@ public class LicensePanelView extends LinearLayout {
         }
     }
 
-    @OnClick(R.id.about_license_expandcollapse)
-    public void togglePanel() {
-        if (noticeView.getVisibility() == View.GONE) {
-            noticeView.setVisibility(VISIBLE);
-            expandCollapseView.setText(R.string.about_license_less);
+    private void togglePanel() {
+        if (binding.licensepanelNoticeText.getVisibility() == View.GONE) {
+            binding.licensepanelNoticeText.setVisibility(VISIBLE);
+            binding.licensepanelExpandcollapseText.setText(R.string.about_license_less);
         } else {
-            noticeView.setVisibility(GONE);
-            expandCollapseView.setText(R.string.about_license_more);
+            binding.licensepanelNoticeText.setVisibility(GONE);
+            binding.licensepanelExpandcollapseText.setText(R.string.about_license_more);
         }
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        unbinder.unbind();
+        binding = null;
     }
 
     @Override
     protected Parcelable onSaveInstanceState() {
         Parcelable superState = super.onSaveInstanceState();
 
-        return new SavedState(superState, noticeView.getVisibility());
+        return new SavedState(superState, binding.licensepanelNoticeText.getVisibility());
     }
 
+    @SuppressLint("WrongConstant") // Visibilities from saved state are valid values
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
         SavedState savedState = (SavedState) state;
@@ -117,10 +102,10 @@ public class LicensePanelView extends LinearLayout {
         if (layoutTransition != null) {
             long durationAppearing = layoutTransition.getDuration(LayoutTransition.APPEARING);
             layoutTransition.setDuration(LayoutTransition.APPEARING, 0);
-            noticeView.setVisibility(savedState.getVisibility());
+            binding.licensepanelNoticeText.setVisibility(savedState.getVisibility());
             layoutTransition.setDuration(LayoutTransition.APPEARING, durationAppearing);
         } else {
-            noticeView.setVisibility(savedState.getVisibility());
+            binding.licensepanelNoticeText.setVisibility(savedState.getVisibility());
         }
     }
 

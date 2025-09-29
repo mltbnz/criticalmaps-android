@@ -2,7 +2,6 @@ package de.stephanlindauer.criticalmaps.fragments;
 
 import android.animation.AnimatorInflater;
 import android.animation.ObjectAnimator;
-import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
@@ -10,35 +9,46 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import androidx.annotation.ColorRes;
-import androidx.annotation.DrawableRes;
-import androidx.annotation.NonNull;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import androidx.fragment.app.Fragment;
-import androidx.core.content.ContextCompat;
-import androidx.core.view.ViewCompat;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.content.res.AppCompatResources;
 import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.Unbinder;
+import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.fragment.app.Fragment;
+
 import com.squareup.otto.Subscribe;
+
+import org.osmdroid.tileprovider.modules.SqlTileWriter;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Overlay;
+import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
+import org.osmdroid.views.overlay.infowindow.InfoWindow;
+
+import java.util.Timer;
+import java.util.TimerTask;
+
+import javax.inject.Inject;
+import javax.inject.Provider;
 
 import de.stephanlindauer.criticalmaps.App;
 import de.stephanlindauer.criticalmaps.R;
+import de.stephanlindauer.criticalmaps.databinding.FragmentMapBinding;
 import de.stephanlindauer.criticalmaps.events.GpsStatusChangedEvent;
 import de.stephanlindauer.criticalmaps.events.NetworkConnectivityChangedEvent;
 import de.stephanlindauer.criticalmaps.events.NewLocationEvent;
 import de.stephanlindauer.criticalmaps.events.NewServerResponseEvent;
+import de.stephanlindauer.criticalmaps.handler.GetLocationHandler;
+import de.stephanlindauer.criticalmaps.handler.ShowGpxHandler;
 import de.stephanlindauer.criticalmaps.managers.LocationUpdateManager;
 import de.stephanlindauer.criticalmaps.model.OtherUsersLocationModel;
 import de.stephanlindauer.criticalmaps.model.OwnLocationModel;
@@ -49,24 +59,20 @@ import de.stephanlindauer.criticalmaps.utils.AlertBuilder;
 import de.stephanlindauer.criticalmaps.utils.MapViewUtils;
 import info.metadude.android.typedpreferences.BooleanPreference;
 
-import javax.inject.Inject;
-
-import org.osmdroid.tileprovider.modules.SqlTileWriter;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Overlay;
-import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
-import org.osmdroid.views.overlay.infowindow.InfoWindow;
 
 public class MapFragment extends Fragment {
-
-    // constants
     private final static String KEY_MAP_ZOOMLEVEL = "map_zoomlevel";
     private final static String KEY_MAP_POSITION = "map_position";
     private final static String KEY_MAP_ORIENTATION = "map_orientation";
     private final static String KEY_INITIAL_LOCATION_SET = "initial_location_set";
 
-    //dependencies
+    private final static double DEFAULT_ZOOM_LEVEL = 12;
+    private final static double NO_GPS_PERMISSION_ZOOM_LEVEL = 3;
+    private final int SERVER_SYNC_INTERVAL = 30 * 1000; // 30 sec
+
+    @Inject
+    Provider<GetLocationHandler> getLocationHandler;
+
     @Inject
     OwnLocationModel ownLocationModel;
 
@@ -80,43 +86,27 @@ public class MapFragment extends Fragment {
     LocationUpdateManager locationUpdateManager;
 
     @Inject
+    ShowGpxHandler showGpxHandler;
+
+    @Inject
     SharedPreferences sharedPreferences;
 
-    //view
     private MapView mapView;
-    private InfoWindow oberserverInfowWindow;
+    private InfoWindow observerInfoWindow;
 
-    @BindView(R.id.set_current_location_center)
-    FloatingActionButton setCurrentLocationCenter;
-
-    @BindView(R.id.set_rotation_north)
-    FloatingActionButton setRotationNorth;
-
-    @BindView(R.id.map_container)
-    FrameLayout mapContainer;
-
-    @BindView(R.id.map_osm_notice)
-    TextView osmNoticeOverlay;
-
-    @BindView(R.id.map_no_data_connectivity)
-    FloatingActionButton noDataConnectivityButton;
-
-    @BindView(R.id.map_overlay_container)
-    RelativeLayout mapOverlayContainer;
-
-    //misc
+    private final GeoPoint defaultGeoPoint = new GeoPoint(52.499571, 13.4140875, 15);
     private boolean isInitialLocationSet = false;
-    private boolean mightComeBackWithLocationPermission = false;
     private ObjectAnimator gpsSearchingAnimator;
 
-    //cache drawables
+    // cache drawables
     private Drawable locationIcon;
     private Drawable ownLocationIcon;
     private Drawable ownLocationIconObserver;
 
-    private Unbinder unbinder;
+    private FragmentMapBinding binding;
 
-    //OnClickListeners for location FAB
+    private Timer timerGetLocation;
+
     private final View.OnClickListener centerLocationOnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -125,7 +115,6 @@ public class MapFragment extends Fragment {
         }
     };
 
-    //OnClickListeners for rotate north FAB
     private final View.OnClickListener rotationNorthOnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -139,12 +128,12 @@ public class MapFragment extends Fragment {
 
             if (currentRotation < 0.0f) {
                 currentRotation = 360.0f + currentRotation;
-                setRotationNorth.setRotation(currentRotation);
+                binding.mapSetNorthFab.setRotation(currentRotation);
                 mapView.setMapOrientation(currentRotation);
             }
 
             float destinationRotation = currentRotation > 180.0f ? 360.0f : 0.0f;
-            ViewCompat.animate(setRotationNorth)
+            ViewCompat.animate(binding.mapSetNorthFab)
                     .rotation(destinationRotation)
                     .setDuration(300L)
                     .setUpdateListener(view -> mapView.setMapOrientation(view.getRotation()))
@@ -156,19 +145,19 @@ public class MapFragment extends Fragment {
             R.string.map_no_gps_title,
             R.string.map_no_gps_text);
 
-    private final View.OnClickListener GpsDisabledOnClickListener =
+    private final View.OnClickListener gpsDisabledOnClickListener =
             v -> AlertBuilder.show(getActivity(),
                     R.string.map_gps_disabled_title,
                     R.string.map_gps_disabled_text);
 
-    private final View.OnClickListener GpsNoPermissionsOnClickListener = new View.OnClickListener() {
+    private final View.OnClickListener gpsNoPermissionsOnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
             locationUpdateManager.requestPermission();
         }
     };
 
-    private final View.OnClickListener GpsPermissionsPermanentlyDeniedOnClickListener = v ->
+    private final View.OnClickListener gpsPermissionsPermanentlyDeniedOnClickListener = v ->
             new AlertDialog.Builder(getActivity(), R.style.AlertDialogTheme)
                     .setTitle(R.string.map_gps_permissions_permanently_denied_title)
                     .setMessage(R.string.map_gps_permissions_permanently_denied_text)
@@ -176,8 +165,9 @@ public class MapFragment extends Fragment {
                     .setPositiveButton(R.string.permissions_open_settings, (dialog, which) -> {
                         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                 Uri.fromParts("package", getActivity().getPackageName(), null));
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);})
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    })
                     .create()
                     .show();
 
@@ -196,8 +186,7 @@ public class MapFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
 
-        View view = inflater.inflate(R.layout.fragment_map, container, false);
-        unbinder = ButterKnife.bind(this, view);
+        binding = FragmentMapBinding.inflate(inflater, container, false);
 
         //noinspection ConstantConditions
         locationIcon = AppCompatResources.getDrawable(getActivity(), R.drawable.ic_map_marker);
@@ -206,7 +195,7 @@ public class MapFragment extends Fragment {
         ownLocationIconObserver = AppCompatResources.getDrawable(
                 getActivity(), R.drawable.ic_map_marker_observer);
 
-        return view;
+        return binding.getRoot();
     }
 
     @Override
@@ -219,28 +208,28 @@ public class MapFragment extends Fragment {
 
         App.components().inject(this);
 
-        osmNoticeOverlay.setMovementMethod(LinkMovementMethod.getInstance());
+        binding.mapOsmNoticeText.setMovementMethod(LinkMovementMethod.getInstance());
 
         mapView = MapViewUtils.createMapView(getActivity());
-        mapContainer.addView(mapView);
+        binding.mapContainerLayout.addView(mapView);
 
-        oberserverInfowWindow = MapViewUtils.createObserverInfoWindow(mapView);
+        observerInfoWindow = MapViewUtils.createObserverInfoWindow(mapView);
 
-        setCurrentLocationCenter.setOnClickListener(centerLocationOnClickListener);
-        setRotationNorth.setOnClickListener(rotationNorthOnClickListener);
+        binding.mapSetCenterFab.setOnClickListener(centerLocationOnClickListener);
+        binding.mapSetNorthFab.setOnClickListener(rotationNorthOnClickListener);
 
-        noDataConnectivityButton.setOnClickListener(v -> AlertBuilder.show(getActivity(),
+        binding.mapNoDataConnectivityFab.setOnClickListener(v -> AlertBuilder.show(getActivity(),
                 R.string.map_no_internet_connection_title,
                 R.string.map_no_internet_connection_text));
 
         if (new BooleanPreference(sharedPreferences, SharedPrefsKeys.DISABLE_MAP_ROTATION).get()) {
-            setRotationNorth.setVisibility(View.GONE);
+            binding.mapSetNorthFab.setVisibility(View.GONE);
         } else {
             RotationGestureOverlay rotationGestureOverlay = new RotationGestureOverlay(mapView) {
                 @Override
                 public void onRotate(float deltaAngle) {
                     super.onRotate(deltaAngle);
-                    setRotationNorth.setRotation(mapView.getMapOrientation());
+                    binding.mapSetNorthFab.setRotation(mapView.getMapOrientation());
                 }
             };
             rotationGestureOverlay.setEnabled(true);
@@ -264,25 +253,31 @@ public class MapFragment extends Fragment {
 
             isInitialLocationSet = savedState.getBoolean(KEY_INITIAL_LOCATION_SET, false);
         }
-        setRotationNorth.setRotation(mapView.getMapOrientation());
+        binding.mapSetNorthFab.setRotation(mapView.getMapOrientation());
+
+        showGpxHandler.showGpx(mapView);
+
+        if (!LocationUpdateManager.checkPermission()) {
+            zoomToLocation(defaultGeoPoint, NO_GPS_PERMISSION_ZOOM_LEVEL);
+        }
     }
 
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     private void adjustToWindowsInsets() {
         // No-op on < API21
-        ViewCompat.setOnApplyWindowInsetsListener(mapOverlayContainer, (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mapOverlayContainerLayout, (v, insets) -> {
             // inset the map overlays for the status bar
             v.setPaddingRelative(
                     v.getPaddingStart(), v.getPaddingTop() + insets.getSystemWindowInsetTop(),
                     v.getPaddingEnd(), v.getPaddingBottom());
 
             // clear this listener so insets aren't re-applied
-            ViewCompat.setOnApplyWindowInsetsListener(mapOverlayContainer, null);
+            ViewCompat.setOnApplyWindowInsetsListener(binding.mapOverlayContainerLayout, null);
             return insets;
         });
 
         // without this insets aren't reapplied on fragment changes
-        ViewCompat.requestApplyInsets(mapOverlayContainer);
+        ViewCompat.requestApplyInsets(binding.mapOverlayContainerLayout);
     }
 
     private void refreshView() {
@@ -306,14 +301,14 @@ public class MapFragment extends Fragment {
             if (new BooleanPreference(
                     sharedPreferences, SharedPrefsKeys.OBSERVER_MODE_ACTIVE).get()) {
                 ownMarker.setIcon(ownLocationIconObserver);
-                ownMarker.setInfoWindow(oberserverInfowWindow);
+                ownMarker.setInfoWindow(observerInfoWindow);
                 // since we're currently creating new markers on every refresh, this workaround
                 // is needed to update the info window's position if it's open
-                if (oberserverInfowWindow.isOpen()) {
+                if (observerInfoWindow.isOpen()) {
                     ownMarker.showInfoWindow();
                 }
             } else {
-                oberserverInfowWindow.close();
+                observerInfoWindow.close();
                 ownMarker.setIcon(ownLocationIcon);
             }
             mapView.getOverlays().add(ownMarker);
@@ -325,25 +320,17 @@ public class MapFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+
         eventBus.register(this);
-
-        // Workaround to handle case when location permission was granted via app ops while the
-        // app is running.
-        if (mightComeBackWithLocationPermission) {
-            // additional check needed because requesting permission will always trigger onResume()
-            // even if no dialog is shown. This would send us into an infinite loop
-            if (locationUpdateManager.checkPermission()) {
-                locationUpdateManager.requestPermission();
-            }
-        }
-
         sharedPreferences.registerOnSharedPreferenceChangeListener(
                 observerModeOnSharedPreferenceChangeListener);
+
+        startGetLocationTimer();
     }
 
     private void handleFirstLocationUpdate() {
         setGpsStatusFixed();
-        zoomToLocation(ownLocationModel.ownLocation, 12.0d);
+        zoomToLocation(ownLocationModel.ownLocation, DEFAULT_ZOOM_LEVEL);
         isInitialLocationSet = true;
     }
 
@@ -360,8 +347,9 @@ public class MapFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        eventBus.unregister(this);
 
+        stopGetLocationTimer();
+        eventBus.unregister(this);
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(
                 observerModeOnSharedPreferenceChangeListener);
     }
@@ -370,9 +358,13 @@ public class MapFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         // properly closes the cache db since it's stored in a static field in osmdroid...
-        ((SqlTileWriter) mapView.getTileProvider().getTileWriter()).refreshDb();
+        try {
+            ((SqlTileWriter) mapView.getTileProvider().getTileWriter()).refreshDb();
+        } catch (Exception ignored) {
+            // nothing we can do
+        }
         mapView = null;
-        unbinder.unbind();
+        binding = null;
     }
 
     @Subscribe
@@ -393,24 +385,27 @@ public class MapFragment extends Fragment {
     @Subscribe
     public void handleNetworkConnectivityChanged(NetworkConnectivityChangedEvent e) {
         if (e.isConnected) {
-            noDataConnectivityButton.hide();
+            binding.mapNoDataConnectivityFab.hide();
         } else {
-            noDataConnectivityButton.show();
+            binding.mapNoDataConnectivityFab.show();
+        }
+
+        if (e.isConnected && timerGetLocation == null) {
+            startGetLocationTimer();
+        } else {
+            stopGetLocationTimer();
         }
     }
 
     @Subscribe
     public void handleGpsStatusChangedEvent(GpsStatusChangedEvent e) {
-        mightComeBackWithLocationPermission = false;
         if (e.status == GpsStatusChangedEvent.Status.NONEXISTENT) {
             setGpsStatusNonexistent();
         } else if (e.status == GpsStatusChangedEvent.Status.DISABLED) {
             setGpsStatusDisabled();
         } else if (e.status == GpsStatusChangedEvent.Status.PERMISSION_PERMANENTLY_DENIED) {
-            mightComeBackWithLocationPermission = true;
             setGpsStatusPermissionsPermanentlyDenied();
         } else if (e.status == GpsStatusChangedEvent.Status.NO_PERMISSIONS) {
-            mightComeBackWithLocationPermission = true;
             setGpsStatusNoPermissions();
         } else if (e.status == GpsStatusChangedEvent.Status.LOW_ACCURACY ||
                 e.status == GpsStatusChangedEvent.Status.HIGH_ACCURACY) {
@@ -431,19 +426,19 @@ public class MapFragment extends Fragment {
     private void setGpsStatusDisabled() {
         cancelGpsSearchingAnimationIfRunning();
         setGpsStatusCommon(R.color.map_fab_warning, R.drawable.ic_map_no_gps,
-                GpsDisabledOnClickListener);
+                gpsDisabledOnClickListener);
     }
 
     private void setGpsStatusNoPermissions() {
         cancelGpsSearchingAnimationIfRunning();
         setGpsStatusCommon(R.color.map_fab_warning, R.drawable.ic_map_no_gps,
-                GpsNoPermissionsOnClickListener);
+                gpsNoPermissionsOnClickListener);
     }
 
     private void setGpsStatusPermissionsPermanentlyDenied() {
         cancelGpsSearchingAnimationIfRunning();
         setGpsStatusCommon(R.color.map_fab_warning, R.drawable.ic_map_no_gps,
-                GpsPermissionsPermanentlyDeniedOnClickListener);
+                gpsPermissionsPermanentlyDeniedOnClickListener);
     }
 
     private void setGpsStatusFixed() {
@@ -460,23 +455,26 @@ public class MapFragment extends Fragment {
         gpsSearchingAnimator = (ObjectAnimator) AnimatorInflater.loadAnimator(
                 getActivity(),
                 R.animator.map_gps_fab_searching_animation);
-        gpsSearchingAnimator.setTarget(setCurrentLocationCenter);
+        gpsSearchingAnimator.setTarget(binding.mapSetCenterFab);
         gpsSearchingAnimator.start();
     }
 
     private void setGpsStatusCommon(@ColorRes int colorResId, @DrawableRes int iconResId,
                                     View.OnClickListener onClickListener) {
         //noinspection ConstantConditions
-        setCurrentLocationCenter.setBackgroundTintList(
+        binding.mapSetCenterFab.setBackgroundTintList(
                 ContextCompat.getColorStateList(getActivity(), colorResId));
-        setCurrentLocationCenter.setImageResource(iconResId);
-        setCurrentLocationCenter.setOnClickListener(onClickListener);
+        binding.mapSetCenterFab.setImageResource(iconResId);
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP) {
+            binding.mapSetCenterFab.refreshDrawableState();
+        }
+        binding.mapSetCenterFab.setOnClickListener(onClickListener);
     }
 
     private void cancelGpsSearchingAnimationIfRunning() {
         if (gpsSearchingAnimator != null) {
             gpsSearchingAnimator.cancel();
-            setCurrentLocationCenter.setAlpha(1.0f);
+            binding.mapSetCenterFab.setAlpha(1.0f);
         }
     }
 
@@ -492,5 +490,26 @@ public class MapFragment extends Fragment {
 
     private void setToLocation(final GeoPoint location) {
         mapView.getController().setCenter(location);
+    }
+
+    private void startGetLocationTimer() {
+        stopGetLocationTimer();
+
+        timerGetLocation = new Timer();
+
+        TimerTask timerTaskPullServer = new TimerTask() {
+            @Override
+            public void run() {
+                getLocationHandler.get().execute();
+            }
+        };
+        timerGetLocation.schedule(timerTaskPullServer, 0, SERVER_SYNC_INTERVAL);
+    }
+
+    private void stopGetLocationTimer() {
+        if (timerGetLocation != null) {
+            timerGetLocation.cancel();
+            timerGetLocation = null;
+        }
     }
 }

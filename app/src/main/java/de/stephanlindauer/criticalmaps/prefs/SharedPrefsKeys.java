@@ -3,8 +3,8 @@ package de.stephanlindauer.criticalmaps.prefs;
 import de.stephanlindauer.criticalmaps.BuildConfig;
 
 public interface SharedPrefsKeys {
-    String INTRODUCTION_ALREADY_SHOWN =
-            BuildConfig.APPLICATION_ID + ".INTRODUCTION_ALREADY_SHOWN";
+    String PRIVACY_POLICY_ACCEPTED =
+            BuildConfig.APPLICATION_ID + ".PRIVACY_POLICY_ACCEPTED";
     String OSMDROID_BASE_PATH =
             BuildConfig.APPLICATION_ID + ".OSMDROID_BASE_PATH";
     String OBSERVER_MODE_ACTIVE =
@@ -15,4 +15,10 @@ public interface SharedPrefsKeys {
             BuildConfig.APPLICATION_ID + ".KEEP_SCREEN_ON";
     String DISABLE_MAP_ROTATION =
             BuildConfig.APPLICATION_ID + ".DISABLE_MAP_ROTATION";
+    String USE_HIGH_RES_MAP_TILES =
+            BuildConfig.APPLICATION_ID + ".USE_HIGH_RES_MAP_TILES";
+    String SHOW_GPX =
+            BuildConfig.APPLICATION_ID + ".SHOW_GPX";
+    String GPX_FILE =
+            BuildConfig.APPLICATION_ID + ".GPX_FILE";
 }

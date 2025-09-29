@@ -1,16 +1,16 @@
 package de.stephanlindauer.criticalmaps.utils;
 
 import android.app.Activity;
-import androidx.core.content.ContextCompat;
-
 import android.view.ViewGroup;
+
+import androidx.core.content.ContextCompat;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.config.IConfigurationProvider;
 import org.osmdroid.tileprovider.MapTileProviderBasic;
 import org.osmdroid.tileprovider.modules.SqlTileWriter;
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
-import org.osmdroid.tileprovider.tilesource.XYTileSource;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.CustomZoomButtonsController;
 import org.osmdroid.views.MapView;
@@ -25,20 +25,16 @@ import de.stephanlindauer.criticalmaps.provider.StorageLocationProvider;
 import timber.log.Timber;
 
 public class MapViewUtils {
-    
-    private final static OnlineTileSourceBase WIKIMEDIA = new XYTileSource("Wikimedia",
-            1, 19, 256, ".png",
-            new String[] {"https://maps.wikimedia.org/osm-intl/"},
-            "Wikimedia maps | Map data © OpenStreetMap contributors");
-
-    private MapViewUtils() {}
+    private MapViewUtils() {
+    }
 
     public static MapView createMapView(Activity activity) {
         IConfigurationProvider configuration = Configuration.getInstance();
 
         StorageLocationProvider.StorageLocation storageLocation =
                 App.components().storageProvider().getActiveStorageLocation();
-        if (storageLocation == null) {
+        boolean noStoredTilesExist = storageLocation == null;
+        if (noStoredTilesExist) {
             storageLocation = App.components().storageProvider().getAndSaveBestStorageLocation();
         }
         File osmdroidBasePath = storageLocation.osmdroidBasePath;
@@ -51,8 +47,8 @@ public class MapViewUtils {
 
         setMaxCacheSize(configuration);
 
-        // TODO Expiration! setExpirationExtendedDuration() OR setExpirationOverrideDuration()
-        // TODO Add option to adjust
+        // TODO Add option to adjust expiration?
+        //      setExpirationExtendedDuration() OR setExpirationOverrideDuration()
 
         configuration.setMapViewHardwareAccelerated(true);
         configuration.setUserAgentValue(BuildConfig.APPLICATION_ID + "/"
@@ -60,11 +56,14 @@ public class MapViewUtils {
                 + "/" + org.osmdroid.library.BuildConfig.VERSION_NAME
                 + " (" + activity.getString(R.string.contact_email) + ")");
 
-        MapTileProviderBasic mapnikTileProvider =
-                new MapTileProviderBasic(activity.getApplicationContext(), WIKIMEDIA);
+        OnlineTileSourceBase onlineTileSourceBase = TileSourceFactory.MAPNIK;
 
-        MapView mapView = new MapView(activity, mapnikTileProvider);
+        MapTileProviderBasic mapTileProviderBasic =
+                new MapTileProviderBasic(activity.getApplicationContext(), onlineTileSourceBase);
+
+        MapView mapView = new MapView(activity, mapTileProviderBasic);
         mapView.getZoomController().setVisibility(CustomZoomButtonsController.Visibility.NEVER);
+
         mapView.setMultiTouchControls(true);
         mapView.getController().setZoom(1.0d);
         mapView.getController().setCenter(new GeoPoint(0.0d, 0.0d));
@@ -99,7 +98,7 @@ public class MapViewUtils {
     }
 
     private static void setMaxCacheSize(IConfigurationProvider configuration) {
-        // code adapted from osmdroid's DefaulConfigurationProvider.load()
+        // code adapted from osmdroid's DefaultConfigurationProvider.load()
         long cacheSize = 0;
         File dbFile = new File(configuration.getOsmdroidTileCache().getAbsolutePath()
                 + File.separator + SqlTileWriter.DATABASE_FILENAME);
@@ -114,8 +113,8 @@ public class MapViewUtils {
                 configuration.getTileFileSystemCacheMaxBytes());
 
         if (configuration.getTileFileSystemCacheMaxBytes() > (freeSpace + cacheSize)) {
-            configuration.setTileFileSystemCacheMaxBytes((long)((freeSpace + cacheSize) * 0.95));
-            configuration.setTileFileSystemCacheTrimBytes((long)((freeSpace + cacheSize) * 0.90));
+            configuration.setTileFileSystemCacheMaxBytes((long) ((freeSpace + cacheSize) * 0.95));
+            configuration.setTileFileSystemCacheTrimBytes((long) ((freeSpace + cacheSize) * 0.90));
         }
 
         Timber.d("getTileFileSystemCacheMaxBytes(): %d",

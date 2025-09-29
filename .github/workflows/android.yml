@@ -1,0 +1,35 @@
+name: Run Build and Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  RunBuildAndUnitTests:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        
+      - name: Gradle Wrapper Validation
+        uses: gradle/actions/wrapper-validation@v3
+      
+      - name: Install JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: 17
+      
+      - name: Run Android Linter
+        run: ./gradlew lint --stacktrace
+      
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+      
+      - name: Assemble Debug APK
+        run: ./gradlew assembleDebug --stacktrace

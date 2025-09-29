@@ -1,82 +1,63 @@
 package de.stephanlindauer.criticalmaps.fragments;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.appcompat.app.AlertDialog;
-
+import android.provider.OpenableColumns;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
-import com.google.android.material.checkbox.MaterialCheckBox;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.Fragment;
 
 import java.util.ArrayList;
 
 import javax.inject.Inject;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.OnCheckedChanged;
-import butterknife.OnClick;
-import butterknife.Unbinder;
 import de.stephanlindauer.criticalmaps.App;
 import de.stephanlindauer.criticalmaps.R;
+import de.stephanlindauer.criticalmaps.databinding.FragmentSettingsBinding;
+import de.stephanlindauer.criticalmaps.handler.ChooseGpxFileHandler;
 import de.stephanlindauer.criticalmaps.prefs.SharedPrefsKeys;
 import de.stephanlindauer.criticalmaps.provider.StorageLocationProvider;
-import de.stephanlindauer.criticalmaps.views.StorageSpaceGraph;
+import de.stephanlindauer.criticalmaps.vo.RequestCodes;
 import info.metadude.android.typedpreferences.BooleanPreference;
+import info.metadude.android.typedpreferences.StringPreference;
 import timber.log.Timber;
 
+import static de.stephanlindauer.criticalmaps.utils.GpxUtils.persistPermissionOnFile;
+
 public class SettingsFragment extends Fragment {
-
-    private Unbinder unbinder;
-
-    @BindView(R.id.settings_storagegraph)
-    StorageSpaceGraph storageSpaceGraph;
-
-    @BindView(R.id.settings_clear_cache_summary)
-    TextView clearCacheSummary;
-
-    @BindView(R.id.settings_cache_used_mb)
-    TextView usedSpace;
-
-    @BindView(R.id.settings_cache_cache_mb)
-    TextView cacheSpace;
-
-    @BindView(R.id.settings_cache_free_mb)
-    TextView freeSpace;
-
-    @BindView(R.id.settings_choose_storage_summary)
-    TextView chooseStorageSummary;
-
-    @BindView(R.id.settings_show_on_lockscreen_checkbox)
-    MaterialCheckBox showOnLockScreenCheckbox;
-
-    @BindView(R.id.settings_keep_screen_on_checkbox)
-    MaterialCheckBox keepScreenOnCheckbox;
-
-    @BindView(R.id.settings_map_rotation_checkbox)
-    MaterialCheckBox mapRotationCheckbox;
-
     @Inject
     StorageLocationProvider storageLocationProvider;
 
     @Inject
     SharedPreferences sharedPreferences;
 
-    @Override @Nullable
+    private FragmentSettingsBinding binding;
+
+    @Inject
+    App app;
+
+    @Override
+    @Nullable
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
 
-        return inflater.inflate(R.layout.fragment_settings, container, false);
+        binding = FragmentSettingsBinding.inflate(inflater, container, false);
+        return binding.getRoot();
     }
 
     @Override
@@ -90,21 +71,58 @@ public class SettingsFragment extends Fragment {
     public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
         super.onViewStateRestored(savedInstanceState);
 
-        //noinspection ConstantConditions
-        unbinder = ButterKnife.bind(this, getView());
-
         updateClearCachePref();
         updateStorageGraph();
         updateChooseStoragePref();
+        updateGpxFileName();
 
-        showOnLockScreenCheckbox.setChecked(
+        binding.settingsShowOnLockscreenCheckbox.setChecked(
                 new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_ON_LOCKSCREEN).get());
 
-        keepScreenOnCheckbox.setChecked(
+        binding.settingsKeepScreenOnCheckbox.setChecked(
                 new BooleanPreference(sharedPreferences, SharedPrefsKeys.KEEP_SCREEN_ON).get());
 
-        mapRotationCheckbox.setChecked(
+        binding.settingsMapRotationCheckbox.setChecked(
                 !new BooleanPreference(sharedPreferences, SharedPrefsKeys.DISABLE_MAP_ROTATION).get());
+
+        binding.settingsShowGpxCheckbox.setChecked(
+                new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_GPX).get());
+
+        binding.settingsClearCacheButton.setOnClickListener(v -> handleClearCacheClicked());
+        binding.settingsChooseStorageContainer.setOnClickListener(v -> handleChooseStorageClicked());
+
+        binding.settingsShowOnLockscreenCheckbox.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> handleShowOnLockscreenChecked(isChecked));
+        binding.settingsKeepScreenOnCheckbox.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> handleKeepScreenOnChecked(isChecked));
+        binding.settingsMapRotationCheckbox.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> handleDisableMapRotationChecked(isChecked));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            binding.settingsShowGpxCheckbox.setOnCheckedChangeListener(
+                    (buttonView, isChecked) -> handleShowTrack(isChecked));
+            binding.settingsChooseGpxContainer.setOnClickListener(v -> handleChooseTrackClicked());
+        } else {
+            binding.settingsShowGpxContainer.setVisibility(View.GONE);
+            binding.settingsChooseGpxContainer.setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RequestCodes.CHOOSE_GPX_RESULT_CODE && resultCode == Activity.RESULT_OK) {
+            Uri fileUri = data.getData();
+            if (fileUri == null) {
+                return;
+            }
+            String gpxFile = fileUri.toString();
+            new StringPreference(
+                    sharedPreferences, SharedPrefsKeys.GPX_FILE).set(gpxFile);
+            persistPermissionOnFile(data, app.getContentResolver());
+            updateGpxFileName();
+        }
     }
 
     private void updateStorageGraph() {
@@ -118,14 +136,15 @@ public class SettingsFragment extends Fragment {
 
         float tilePercentage = (float) tileSize / currentStorageLocation.totalSize;
 
-        usedSpace.setText(String.format(getString(R.string.settings_cache_used_mb),
+        binding.settingsCacheUsedSpaceText.setText(String.format(getString(R.string.settings_cache_used_mb),
                 Formatter.formatShortFileSize(getActivity(), currentStorageLocation.usedSpace)));
-        cacheSpace.setText(String.format(getString(R.string.settings_cache_cache_mb),
+        binding.settingsCacheUsedCacheSpaceText.setText(String.format(getString(R.string.settings_cache_cache_mb),
                 Formatter.formatShortFileSize(getActivity(), tileSize)));
-        freeSpace.setText(String.format(getString(R.string.settings_cache_free_mb),
+        binding.settingsCacheFreeSpaceText.setText(String.format(getString(R.string.settings_cache_free_mb),
                 Formatter.formatShortFileSize(getActivity(), currentStorageLocation.freeSpace)));
 
-        storageSpaceGraph.setBarPercentagesAnimated(usedPercentage, tilePercentage);
+        binding.settingsCacheStoragespacegraph.setBarPercentagesAnimated(
+                usedPercentage, tilePercentage);
     }
 
     private void updateClearCachePref() {
@@ -133,23 +152,38 @@ public class SettingsFragment extends Fragment {
                 storageLocationProvider.getActiveStorageLocation().getCacheSize();
         Timber.d("Current cache size: %s",
                 Formatter.formatShortFileSize(getActivity(), currentSize));
-        clearCacheSummary.setText(
+        binding.settingsClearCacheSummaryText.setText(
                 String.format(getString(R.string.settings_cache_currently_used),
                         Formatter.formatShortFileSize(getActivity(), currentSize)));
     }
 
     private void updateChooseStoragePref() {
-        chooseStorageSummary.setText(storageLocationProvider.getActiveStorageLocation().displayName);
+        binding.settingsChooseStorageSummaryText.setText(
+                storageLocationProvider.getActiveStorageLocation().displayName);
     }
 
-    @OnClick(R.id.settings_clear_cache_button)
+    @SuppressLint("Range") // FIXME
+    private void updateGpxFileName() {
+        String gpxFile = new StringPreference(
+                sharedPreferences, SharedPrefsKeys.GPX_FILE).get();
+        String filename = gpxFile;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            Cursor fileCursor = getContext().getContentResolver().query(Uri.parse(gpxFile), null, null, null);
+            if (fileCursor != null) {
+                fileCursor.moveToFirst();
+                filename = fileCursor.getString(fileCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                fileCursor.close();
+            }
+        }
+        binding.settingsChooseGpxSummaryText.setText(filename);
+    }
+
     void handleClearCacheClicked() {
         storageLocationProvider.getActiveStorageLocation().clearCache();
         updateClearCachePref();
         updateStorageGraph();
     }
 
-    @OnClick(R.id.settings_choose_storage_container)
     void handleChooseStorageClicked() {
         ArrayList<StorageLocationProvider.StorageLocation> storageLocations =
                 storageLocationProvider.getAllWritableStorageLocations();
@@ -207,27 +241,34 @@ public class SettingsFragment extends Fragment {
                 .show();
     }
 
-    @OnCheckedChanged(R.id.settings_show_on_lockscreen_checkbox)
     void handleShowOnLockscreenChecked(boolean isChecked) {
         new BooleanPreference(
                 sharedPreferences, SharedPrefsKeys.SHOW_ON_LOCKSCREEN).set(isChecked);
     }
 
-    @OnCheckedChanged(R.id.settings_keep_screen_on_checkbox)
     void handleKeepScreenOnChecked(boolean isChecked) {
         new BooleanPreference(
                 sharedPreferences, SharedPrefsKeys.KEEP_SCREEN_ON).set(isChecked);
     }
 
-    @OnCheckedChanged(R.id.settings_map_rotation_checkbox)
     void handleDisableMapRotationChecked(boolean isChecked) {
         new BooleanPreference(
                 sharedPreferences, SharedPrefsKeys.DISABLE_MAP_ROTATION).set(!isChecked);
     }
 
+    void handleShowTrack(boolean isChecked) {
+        new BooleanPreference(
+                sharedPreferences, SharedPrefsKeys.SHOW_GPX).set(isChecked);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    void handleChooseTrackClicked() {
+        new ChooseGpxFileHandler(this).openChooser();
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        unbinder.unbind();
+        binding = null;
     }
 }

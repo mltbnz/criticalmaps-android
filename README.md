@@ -1,13 +1,13 @@
-<p align="center"><a href="https://www.criticalmaps.net"><img src="https://github.com/criticalmaps/criticalmaps-ios/blob/master/images/logo.png" width="250" /></a></p>
+<p align="center"><a href="https://www.criticalmaps.net"><img src="https://github.com/criticalmaps/criticalmaps-ios/blob/4aff6db9e709accd3536144ae71dce76611f6565/_images/Icon.svg" width="250" /></a></p>
 
 <p align="center">
-<a title="Play Store Link" target="_blank" alt="Link to the Play Store"><a href="https://play.google.com/store/apps/details?id=de.stephanlindauer.criticalmaps"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" width="170" /></a>
-<a title="F-Droid Link" target="_blank" alt="Link to the F-Droid Store"><a href="https://f-droid.org/repository/browse/?fdid=de.stephanlindauer.criticalmaps"><img src="https://f-droid.org/wiki/images/c/c4/F-Droid-button_available-on.png" width="170" /></a>
+<a href='https://play.google.com/store/apps/details?id=de.stephanlindauer.criticalmaps&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' height="80"/></a>
+<a title="F-Droid Link" target="_blank" href="https://f-droid.org/en/packages/de.stephanlindauer.criticalmaps/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="80" alt="Get it on F-Droid"/></a>
 </p>
-  
+
 # Critical Mass Android App
 
-[![Build Status](https://travis-ci.org/criticalmaps/criticalmaps-android.svg)](https://travis-ci.org/criticalmaps/criticalmaps-android)
+[![CI](https://github.com/criticalmaps/criticalmaps-android/actions/workflows/android.yml/badge.svg)](https://github.com/criticalmaps/criticalmaps-android/actions/workflows/android.yml)
 
 ## What's "Critical Mass"?
 
@@ -36,4 +36,37 @@ Check: http://criticalmaps.net
 
 ## App screenshot
 
-![app-screenshot](https://raw.githubusercontent.com/criticalmaps/media/master/android/readme/screenshot.jpg)
+<p align="center">
+<img src="https://raw.githubusercontent.com/criticalmaps/criticalmaps-android/master/Screenshot_1576339542.png" width="300" />
+<img src="https://raw.githubusercontent.com/criticalmaps/criticalmaps-android/master/Screenshot_1576339557.png" width="300" />
+</p>
+
+## Contributors
+
+### Code Contributors
+
+This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
+<a href="https://github.com/criticalmaps/criticalmaps-android/graphs/contributors"><img src="https://opencollective.com/criticalmaps/contributors.svg?width=890&button=false" /></a>
+
+### Financial Contributors
+
+Become a financial contributor and help us sustain our community. [[Contribute](https://opencollective.com/criticalmaps/contribute)]
+
+#### Individuals
+
+<a href="https://opencollective.com/criticalmaps"><img src="https://opencollective.com/criticalmaps/individuals.svg?width=890"></a>
+
+#### Organizations
+
+Support this project with your organization. Your logo will show up here with a link to your website. [[Contribute](https://opencollective.com/criticalmaps/contribute)]
+
+<a href="https://opencollective.com/criticalmaps/organization/0/website"><img src="https://opencollective.com/criticalmaps/organization/0/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/1/website"><img src="https://opencollective.com/criticalmaps/organization/1/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/2/website"><img src="https://opencollective.com/criticalmaps/organization/2/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/3/website"><img src="https://opencollective.com/criticalmaps/organization/3/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/4/website"><img src="https://opencollective.com/criticalmaps/organization/4/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/5/website"><img src="https://opencollective.com/criticalmaps/organization/5/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/6/website"><img src="https://opencollective.com/criticalmaps/organization/6/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/7/website"><img src="https://opencollective.com/criticalmaps/organization/7/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/8/website"><img src="https://opencollective.com/criticalmaps/organization/8/avatar.svg"></a>
+<a href="https://opencollective.com/criticalmaps/organization/9/website"><img src="https://opencollective.com/criticalmaps/organization/9/avatar.svg"></a>

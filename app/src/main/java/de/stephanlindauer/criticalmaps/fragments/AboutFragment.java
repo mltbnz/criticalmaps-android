@@ -2,67 +2,51 @@ package de.stephanlindauer.criticalmaps.fragments;
 
 import android.animation.LayoutTransition;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.Unbinder;
-import de.stephanlindauer.criticalmaps.R;
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+
+import de.stephanlindauer.criticalmaps.databinding.FragmentAboutBinding;
 import de.stephanlindauer.criticalmaps.utils.IntentUtil.URLOpenOnActivityOnClickListener;
 
 public class AboutFragment extends Fragment {
 
-    @BindView(R.id.about_facebook)
-    ImageButton facebookButton;
-
-    @BindView(R.id.about_twitter)
-    ImageButton twitterButton;
-
-    @BindView(R.id.about_github)
-    ImageButton githubButton;
-
-    @BindView(R.id.about_subcontainer)
-    LinearLayout subContainer;
-
-    private Unbinder unbinder;
+    private FragmentAboutBinding binding;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
-        View view = inflater.inflate(R.layout.fragment_about, container, false);
-        unbinder = ButterKnife.bind(this, view);
-        return view;
+        binding = FragmentAboutBinding.inflate(inflater, container, false);
+        return binding.getRoot();
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        LayoutTransition layoutTransition = subContainer.getLayoutTransition();
+
+        LayoutTransition layoutTransition = binding.aboutContentLayout.getLayoutTransition();
         // make LicensePanelView animations look nice
         layoutTransition.enableTransitionType(LayoutTransition.CHANGING);
         // stop settings from bubbling up to ScrollView to prevent scroll animation
         // on state restore and panel close
         layoutTransition.setAnimateParentHierarchy(false);
-        subContainer.setLayoutTransition(layoutTransition);
+        binding.aboutContentLayout.setLayoutTransition(layoutTransition);
 
-        facebookButton.setOnClickListener(
+        binding.aboutFacebookButton.setOnClickListener(
                 new URLOpenOnActivityOnClickListener("https://www.facebook.com/criticalmaps"));
-        twitterButton.setOnClickListener(
+        binding.aboutTwitterButton.setOnClickListener(
                 new URLOpenOnActivityOnClickListener("https://twitter.com/CriticalMaps"));
-        githubButton.setOnClickListener(
+        binding.aboutGithubButton.setOnClickListener(
                 new URLOpenOnActivityOnClickListener("https://github.com/criticalmaps/criticalmaps-android"));
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        unbinder.unbind();
+        binding = null;
     }
 }

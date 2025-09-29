@@ -1,73 +1,43 @@
 package de.stephanlindauer.criticalmaps.adapter;
 
-import android.animation.AnimatorInflater;
-import android.animation.ObjectAnimator;
+import android.view.LayoutInflater;
+import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
 
 import java.text.DateFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import de.stephanlindauer.criticalmaps.R;
-import de.stephanlindauer.criticalmaps.interfaces.IChatMessage;
-import de.stephanlindauer.criticalmaps.utils.TimeToWordStringConverter;
+import de.stephanlindauer.criticalmaps.databinding.ViewChatmessageBinding;
 import de.stephanlindauer.criticalmaps.model.chat.ReceivedChatMessage;
+import de.stephanlindauer.criticalmaps.utils.TimeToWordStringConverter;
 
 public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.ChatMessageViewHolder> {
 
-    private List<IChatMessage> chatMessages;
+    private List<ReceivedChatMessage> chatMessages;
 
     static class ChatMessageViewHolder extends RecyclerView.ViewHolder {
-
-        @BindView(R.id.firstLine)
-        TextView labelView;
-
-        @BindView(R.id.secondLine)
-        TextView valueView;
-
+        private final ViewChatmessageBinding binding;
         private final DateFormat dateFormatter = DateFormat.getDateTimeInstance(
                 DateFormat.DEFAULT, DateFormat.SHORT, Locale.getDefault());
-        private ObjectAnimator sendingAnimator;
 
-        ChatMessageViewHolder(View itemView) {
-            super(itemView);
-            ButterKnife.bind(this, itemView);
+        ChatMessageViewHolder(ViewChatmessageBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
         }
 
-        void bind(IChatMessage message) {
-            valueView.setText(message.getMessage());
-            if (message instanceof ReceivedChatMessage) {
-                dateFormatter.setTimeZone(TimeZone.getDefault());
-                labelView.setText(TimeToWordStringConverter.getTimeAgo(
-                        ((ReceivedChatMessage) message).getTimestamp(), itemView.getContext()));
-            } else {
-                labelView.setText(R.string.chat_sending);
-                
-                sendingAnimator = (ObjectAnimator) AnimatorInflater.loadAnimator(
-                        itemView.getContext(), R.animator.map_gps_fab_searching_animation);
-                sendingAnimator.setTarget(labelView);
-                sendingAnimator.start();
-            }
-        }
-
-        void clearAnimation() {
-            if (sendingAnimator != null) {
-                sendingAnimator.cancel();
-                labelView.setAlpha(1f);
-            }
+        void bind(ReceivedChatMessage message) {
+            binding.chatmessageMessageText.setText(message.getMessage());
+            dateFormatter.setTimeZone(TimeZone.getDefault());
+            binding.chatmessageLabelText.setText(TimeToWordStringConverter.getTimeAgo(
+                    message.getTimestamp(), itemView.getContext()));
         }
     }
 
-    public ChatMessageAdapter(List<IChatMessage> chatMessages) {
+    public ChatMessageAdapter(List<ReceivedChatMessage> chatMessages) {
         this.chatMessages = chatMessages;
     }
 
@@ -75,8 +45,10 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
     @Override
     public ChatMessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         final LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-        final View res = inflater.inflate(R.layout.view_chatmessage, parent, false);
-        return new ChatMessageViewHolder(res);
+        final ViewChatmessageBinding binding =
+                ViewChatmessageBinding.inflate(inflater, parent, false);
+
+        return new ChatMessageViewHolder(binding);
     }
 
     @Override
@@ -85,16 +57,11 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
     }
 
     @Override
-    public void onViewDetachedFromWindow(@NonNull ChatMessageViewHolder holder) {
-        holder.clearAnimation();
-    }
-
-    @Override
     public int getItemCount() {
         return chatMessages.size();
     }
 
-    public void updateData(List<IChatMessage> savedAndOutgoingMessages) {
+    public void updateData(List<ReceivedChatMessage> savedAndOutgoingMessages) {
         this.chatMessages = savedAndOutgoingMessages;
         notifyDataSetChanged();
     }

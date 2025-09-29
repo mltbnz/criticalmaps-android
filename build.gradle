@@ -1,19 +1,17 @@
 buildscript {
     ext {
-        dagger_version = "2.25.2"
-        butterknife_version = "10.2.0"
+        dagger_version = "2.52"
     }
 
     repositories {
         google()
-        // gradle-errorprone-plugin:
-        maven { url "https://plugins.gradle.org/m2/" }
+        gradlePluginPortal() // gradle-errorprone-plugin
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.5.2'
-        classpath 'de.mobilej.unmock:UnMockPlugin:0.6.5'
-        classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.7.1'
+        classpath 'com.android.tools.build:gradle:8.11.2'
+        classpath 'com.github.bjoernq:unmockplugin:0.7.9'
+        classpath 'net.ltgt.gradle:gradle-errorprone-plugin:3.1.0'
     }
 }
 
@@ -21,8 +19,5 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url  "https://jetbrains.bintray.com/trove4j" }
-        maven { url  "https://dl.bintray.com/ligi/maven" }
-        maven { url  "https://dl.bintray.com/bjoernq/maven" }
     }
 }
