@@ -109,14 +109,6 @@ public class ChatFragment extends Fragment {
                 updateSendButtonEnabledState();
             }
         });
-
-//        binding.settingsShowActiveRidersOnlyCheckbox.setChecked(
-//                new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_ACTIVE_RIDERS_ONLY).get());
-//
-//        binding.settingsShowActiveRidersOnlyCheckbox.setOnCheckedChangeListener(
-//                (buttonView, isChecked) ->
-//                        new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_ACTIVE_RIDERS_ONLY)
-//                                .set(isChecked));
     }
 
     private void setSendButtonEnabledWithAnimation(final boolean enabled) {
