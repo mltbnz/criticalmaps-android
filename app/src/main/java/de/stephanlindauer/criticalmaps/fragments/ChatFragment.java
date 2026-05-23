@@ -43,8 +43,10 @@ import de.stephanlindauer.criticalmaps.handler.GetChatmessagesHandler;
 import de.stephanlindauer.criticalmaps.handler.PostChatmessagesHandler;
 import de.stephanlindauer.criticalmaps.model.ChatModel;
 import de.stephanlindauer.criticalmaps.model.chat.ReceivedChatMessage;
+import de.stephanlindauer.criticalmaps.prefs.SharedPrefsKeys;
 import de.stephanlindauer.criticalmaps.provider.EventBus;
 import de.stephanlindauer.criticalmaps.utils.AxtUtils.SimpleTextWatcher;
+import info.metadude.android.typedpreferences.BooleanPreference;
 
 
 public class ChatFragment extends Fragment {
@@ -107,6 +109,14 @@ public class ChatFragment extends Fragment {
                 updateSendButtonEnabledState();
             }
         });
+
+//        binding.settingsShowActiveRidersOnlyCheckbox.setChecked(
+//                new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_ACTIVE_RIDERS_ONLY).get());
+//
+//        binding.settingsShowActiveRidersOnlyCheckbox.setOnCheckedChangeListener(
+//                (buttonView, isChecked) ->
+//                        new BooleanPreference(sharedPreferences, SharedPrefsKeys.SHOW_ACTIVE_RIDERS_ONLY)
+//                                .set(isChecked));
     }
 
     private void setSendButtonEnabledWithAnimation(final boolean enabled) {
