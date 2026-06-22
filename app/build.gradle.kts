@@ -28,15 +28,15 @@ android {
     }
 
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "de.stephanlindauer.criticalmaps"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 103
-        versionName = "3.1.1"
+        targetSdk = 37
+        versionCode = 105
+        versionName = "3.1.3"
         vectorDrawables.useSupportLibrary = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
